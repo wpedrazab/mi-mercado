@@ -7,6 +7,10 @@ import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage'
 import { UpdatePasswordPage } from './features/auth/UpdatePasswordPage'
 import { AdminPanelPage } from './features/admin/AdminPanelPage'
 import { FamilyManagementPage } from './features/family/FamilyManagementPage'
+import { ShoppingListPage } from './features/shopping-list/ShoppingListPage'
+import { StartPurchasePage } from './features/purchase/StartPurchasePage'
+import { LivePurchasePage } from './features/purchase/LivePurchasePage'
+import { PurchaseSummaryPage } from './features/purchase/PurchaseSummaryPage'
 
 function App() {
   return (
@@ -37,6 +41,38 @@ function App() {
             element={
               <ProtectedRoute>
                 <FamilyManagementPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/lista"
+            element={
+              <ProtectedRoute>
+                <ShoppingListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/iniciar-compra"
+            element={
+              <ProtectedRoute>
+                <StartPurchasePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/compra/:purchaseId"
+            element={
+              <ProtectedRoute>
+                <LivePurchasePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/compra/:purchaseId/resumen"
+            element={
+              <ProtectedRoute>
+                <PurchaseSummaryPage />
               </ProtectedRoute>
             }
           />
