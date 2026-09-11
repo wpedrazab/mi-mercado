@@ -20,7 +20,9 @@ export async function listFamilyMembers(familyId: string): Promise<Profile[]> {
 }
 
 export async function inviteMember(input: { familyId: string; nombre: string; email: string }) {
-  const { data, error } = await supabase.functions.invoke('invite-member', { body: input })
+  const { data, error } = await supabase.functions.invoke('invite-member', {
+    body: { ...input, redirectTo: `${window.location.origin}/actualizar-password` },
+  })
   if (error) throw new Error(await extractFunctionErrorMessage(error))
   return data as { ok: true }
 }

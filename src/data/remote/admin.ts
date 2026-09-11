@@ -29,7 +29,9 @@ export async function listFamiliesWithSummary(): Promise<FamilySummary[]> {
 }
 
 export async function createFamily(input: { familyName: string; principalName: string; principalEmail: string }) {
-  const { data, error } = await supabase.functions.invoke('create-family', { body: input })
+  const { data, error } = await supabase.functions.invoke('create-family', {
+    body: { ...input, redirectTo: `${window.location.origin}/actualizar-password` },
+  })
   if (error) throw new Error(await extractFunctionErrorMessage(error))
   return data as { family: Family }
 }

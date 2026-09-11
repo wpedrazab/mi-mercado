@@ -12,6 +12,9 @@ interface Payload {
   familyId: string
   nombre: string
   email: string
+  /** Origin del cliente (window.location.origin) — el Site URL del proyecto
+   * no sirve para dev local, donde el puerto varía. */
+  redirectTo: string
 }
 
 Deno.serve(async (req) => {
@@ -22,7 +25,7 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) return json({ error: 'Falta autenticación.' }, 401)
 
-    const { familyId, nombre, email } = (await req.json()) as Partial<Payload>
+    const { familyId, nombre, email, redirectTo } = (await req.json()) as Partial<Payload>
     if (!familyId?.trim() || !nombre?.trim() || !email?.trim()) {
       return json({ error: 'Faltan campos requeridos.' }, 400)
     }
@@ -61,6 +64,7 @@ Deno.serve(async (req) => {
 
     const { error: inviteError } = await asService.auth.admin.inviteUserByEmail(email, {
       data: { nombre, rol: 'miembro', family_id: familyId },
+      redirectTo,
     })
     if (inviteError) {
       return json({ error: `No se pudo enviar la invitación: ${inviteError.message}` }, 400)
