@@ -4,9 +4,11 @@ insert into storage.buckets (id, name, public)
 values ('facturas', 'facturas', false)
 on conflict (id) do nothing;
 
--- Ya viene habilitado por defecto en un proyecto Supabase estándar; se deja
--- explícito por si se corre en un self-host donde no sea el caso (idempotente).
-alter table storage.objects enable row level security;
+-- No se toca "alter table storage.objects enable row level security": en
+-- Supabase hospedado esa tabla es propiedad de supabase_storage_admin, no de
+-- postgres, así que ese ALTER falla con "must be owner of table objects"
+-- (visto en la práctica al aplicar esta migración). RLS ya viene activado
+-- ahí por defecto — solo hace falta crear las políticas.
 
 create policy facturas_select on storage.objects
   for select
