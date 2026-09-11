@@ -24,6 +24,21 @@ No hay forma de invitar al primer admin desde la app (nadie más existe todavía
 
 A partir de ahí, el admin invita desde el panel de administrador (pantalla `PanelAdmin`) al usuario principal de cada familia — eso ya sí queda cubierto por `auth.admin.inviteUserByEmail` + el trigger `handle_new_user`.
 
+## Edge Functions (`supabase/functions/`)
+
+`create-family` (panel de administrador) e `invite-member` (gestión de familia) son las únicas piezas que necesitan la **service-role key** — `auth.admin.inviteUserByEmail` no se puede llamar desde el navegador. No se pudieron probar en este entorno (no hay Deno instalado ni proyecto Supabase enlazado), así que revísalas con cuidado al desplegar.
+
+Cada función abre dos clientes de Supabase distintos:
+- uno "como quien llama" (con el `Authorization` header que manda el navegador) — decide si la operación está permitida vía RLS/perfil, igual que cualquier llamada normal del cliente;
+- uno con la service-role key — **solo** para `auth.admin.inviteUserByEmail` y para chequear de antemano si el correo ya tiene cuenta (`profiles` no es visible entre familias para nadie que no sea admin).
+
+Desplegar (con el proyecto ya enlazado, ver arriba):
+```bash
+npx supabase functions deploy create-family
+npx supabase functions deploy invite-member
+```
+`SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` los inyecta Supabase automáticamente en todo Edge Function — no hay que configurar secretos a mano.
+
 ## Decisiones y desvíos respecto al borrador del doc de contexto
 
 - **`purchases.shopping_list_id`**: no estaba en el borrador de `CONTEXTO-PARA-CLAUDE-CODE.md`. Se agregó (nullable) porque el flujo de "avisar productos aún sin comprar" al cerrar necesita saber *qué* lista está surtiendo cada compra, y el doc permite varias compras `en_curso` simultáneas por familia.
@@ -34,5 +49,6 @@ A partir de ahí, el admin invita desde el panel de administrador (pantalla `Pan
 
 ## Qué falta (fuera de alcance de este paso)
 
-- La función Edge/cliente que realmente invita usuarios (`auth.admin.inviteUserByEmail` con `user_metadata: { nombre, family_id, rol }`) — corresponde al paso de Autenticación / Panel de administrador del roadmap, no al modelo de datos.
+- "Invitación pendiente" en la pantalla de gestión de familia (mockup 4): requeriría exponer `auth.users.last_sign_in_at` de alguna forma (RPC o Edge Function); se dejó fuera para no ampliar el alcance.
+- Impersonar de verdad al usuario principal desde "Acceder (soporte)": el admin entra a la misma pantalla de gestión de familia con su propia sesión (ya tiene acceso vía RLS), no se generó una sesión/magic link a nombre del principal.
 - Autohospedar Fredoka/Nunito (pendiente desde el scaffold).

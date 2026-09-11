@@ -42,6 +42,13 @@ export function HomePage() {
               </Button>
             </Link>
           )}
+          {family && (
+            <Link to="/familia" className="block">
+              <Button variant="ghost" className="w-full">
+                Mi familia
+              </Button>
+            </Link>
+          )}
           <Button variant="ghost" className="w-full" onClick={auth.signOut}>
             Cerrar sesión
           </Button>

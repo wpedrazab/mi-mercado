@@ -5,7 +5,8 @@ import { HomePage } from './app/routes/HomePage'
 import { LoginPage } from './features/auth/LoginPage'
 import { ForgotPasswordPage } from './features/auth/ForgotPasswordPage'
 import { UpdatePasswordPage } from './features/auth/UpdatePasswordPage'
-import { AdminStubPage } from './features/admin/AdminStubPage'
+import { AdminPanelPage } from './features/admin/AdminPanelPage'
+import { FamilyManagementPage } from './features/family/FamilyManagementPage'
 
 function App() {
   return (
@@ -19,7 +20,23 @@ function App() {
             path="/admin"
             element={
               <ProtectedRoute roles={['admin']}>
-                <AdminStubPage />
+                <AdminPanelPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/familias/:familyId"
+            element={
+              <ProtectedRoute roles={['admin']}>
+                <FamilyManagementPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/familia"
+            element={
+              <ProtectedRoute>
+                <FamilyManagementPage />
               </ProtectedRoute>
             }
           />

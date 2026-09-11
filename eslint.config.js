@@ -5,7 +5,9 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
-  { ignores: ['dist', 'dev-dist'] },
+  // supabase/functions es código Deno (imports npm:/URL, globals de Deno):
+  // ni este tsconfig ni el parser de TS de este proyecto lo entienden.
+  { ignores: ['dist', 'dev-dist', 'supabase/functions'] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ['**/*.{ts,tsx}'],
