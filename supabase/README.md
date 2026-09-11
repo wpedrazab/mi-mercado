@@ -2,9 +2,9 @@
 
 ## Aplicar las migraciones
 
-No se probaron contra una instancia real (este entorno no tiene Docker ni Postgres local), así que revísalas al aplicarlas la primera vez. Dos formas:
+Ya se probaron contra un proyecto real (ver el bug de GRANT más abajo, ya corregido). Dos formas:
 
-**A. Panel de Supabase (SQL Editor)** — pega y ejecuta cada archivo de `migrations/` en orden numérico (`20260911000001_...` → `20260911000008_...`).
+**A. Panel de Supabase (SQL Editor)** — pega y ejecuta cada archivo de `migrations/` en orden numérico (`20260911000001_...` → `20260911000010_...`).
 
 **B. Supabase CLI**, si vinculas el proyecto:
 ```bash
@@ -38,6 +38,12 @@ npx supabase functions deploy create-family
 npx supabase functions deploy invite-member
 ```
 `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY` los inyecta Supabase automáticamente en todo Edge Function — no hay que configurar secretos a mano.
+
+## Bug real encontrado al conectar contra un proyecto real (2026-09-11)
+
+Las migraciones 1-9 se probaron solo contra respuestas simuladas (nunca contra Postgres real) hasta conectar este proyecto de verdad. Ahí salió un bug serio: **faltaba el `GRANT` base de las tablas al rol `authenticated`**. RLS es un filtro *adicional* sobre el permiso de SQL estándar, no un sustituto — sin `GRANT SELECT/INSERT/UPDATE/DELETE ... TO authenticated`, Postgres rechaza la operación con "permission denied" antes de llegar a evaluar ninguna policy. Síntoma real: el login en Supabase Auth funcionaba perfecto (`last_sign_in_at` se actualizaba), pero la app se quedaba pegada en la pantalla de login porque `fetchOwnProfile` fallaba en silencio.
+
+Corregido en `20260911000010_grants.sql`. Si aplicaste las migraciones 1-9 antes de esa fecha, corre esa migración nueva (o el `GRANT` a mano) en tu proyecto.
 
 ## Decisiones y desvíos respecto al borrador del doc de contexto
 
