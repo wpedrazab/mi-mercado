@@ -8,3 +8,6 @@ dev-dist
 .DS_Store
 coverage
 supabase/.temp
+
+.vercel
+.env*
