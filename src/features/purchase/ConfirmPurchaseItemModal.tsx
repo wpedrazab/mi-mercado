@@ -14,6 +14,8 @@ export interface PurchaseItemDraft {
   precioUnitario: number | null
   fueraDeLista: boolean
   existingItemId?: string
+  /** Si viene de una foto escaneada: se muestra la miniatura y otro subtítulo. */
+  photoUrl?: string
 }
 
 export function ConfirmPurchaseItemModal({
@@ -72,7 +74,13 @@ export function ConfirmPurchaseItemModal({
     <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center p-0 sm:p-6 z-50" onClick={onClose}>
       <Card className="w-full sm:max-w-sm rounded-b-none sm:rounded-[var(--radius-card)]" onClick={(e) => e.stopPropagation()}>
         <h2 className="font-heading font-semibold text-lg text-text">Confirmar producto</h2>
-        <p className="text-sm text-text-secondary mb-4">Escribe el precio que viste en la etiqueta.</p>
+        <p className="text-sm text-text-secondary mb-4">
+          {draft.photoUrl ? 'Precio detectado de la foto — revisa y ajusta si hace falta.' : 'Escribe el precio que viste en la etiqueta.'}
+        </p>
+
+        {draft.photoUrl && (
+          <img src={draft.photoUrl} alt="Foto de la etiqueta escaneada" className="w-full h-32 object-cover rounded-[var(--radius-field)] mb-4" />
+        )}
 
         <label className="block text-sm font-semibold text-text-label mb-1" htmlFor="modal-producto">
           Producto
@@ -98,8 +106,11 @@ export function ConfirmPurchaseItemModal({
         )}
 
         <label className="block text-sm font-semibold text-text-label mb-1" htmlFor="modal-precio">
-          Precio unitario
+          {draft.photoUrl ? 'Precio detectado' : 'Precio unitario'}
         </label>
+        {draft.photoUrl && draft.precioUnitario == null && (
+          <p className="text-xs text-alert mb-1">No pudimos leer el precio automáticamente. Escríbelo.</p>
+        )}
         <div className="flex items-center gap-2 mb-4">
           <span className="text-text-secondary">{purchase.moneda === 'VES' ? 'Bs' : '$'}</span>
           <input

@@ -1,15 +1,24 @@
-import { useState } from 'react'
+import { useRef, useState, type ChangeEvent } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { categoriesRepo, listItemsRepo, productsRepo, purchaseItemsRepo, purchasesRepo, shoppingListsRepo } from '../../data/local/repos'
-import type { CurrencyCode, PurchaseItemRow } from '../../data/local/types'
+import type { CurrencyCode, PurchaseItemRow, UnitType } from '../../data/local/types'
 import { categoryColorClass } from '../../shared/lib/categoryColor'
 import { formatAmount, formatUsd } from '../../shared/lib/currency'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
-import { PencilIcon } from '../../shared/ui/icons'
+import { CameraIcon, PencilIcon } from '../../shared/ui/icons'
 import { ConfirmPurchaseItemModal, type PurchaseItemDraft } from './ConfirmPurchaseItemModal'
+import { recognizePriceFromImage } from './ocr'
+
+interface ScanTarget {
+  productId: string
+  lockProduct: boolean
+  cantidad: number
+  unidad: UnitType
+  fueraDeLista: boolean
+}
 
 export function LivePurchasePage() {
   const auth = useAuth()
@@ -34,8 +43,40 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
   const [draft, setDraft] = useState<PurchaseItemDraft | null>(null)
   const [showPending, setShowPending] = useState(false)
   const [closing, setClosing] = useState(false)
+  const [captureTarget, setCaptureTarget] = useState<ScanTarget | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (!purchase) return null
+
+  function startScan(target: ScanTarget) {
+    setCaptureTarget(target)
+    fileInputRef.current?.click()
+  }
+
+  async function onPhotoSelected(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file || !captureTarget) return
+
+    setScanning(true)
+    try {
+      const photoUrl = URL.createObjectURL(file)
+      const { price } = await recognizePriceFromImage(file)
+      setDraft({
+        productId: captureTarget.productId,
+        lockProduct: captureTarget.lockProduct,
+        cantidad: captureTarget.cantidad,
+        unidad: captureTarget.unidad,
+        precioUnitario: price,
+        fueraDeLista: captureTarget.fueraDeLista,
+        photoUrl,
+      })
+    } finally {
+      setScanning(false)
+      setCaptureTarget(null)
+    }
+  }
 
   const purchasedProductIds = new Set(purchaseItems.map((i) => i.product_id))
   const pendingListItems = listItems.filter((li) => !purchasedProductIds.has(li.product_id))
@@ -102,15 +143,34 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
           )}
         </div>
 
-        <Button
-          variant="ghost"
-          className="w-full mb-4"
-          onClick={() =>
-            setDraft({ productId: '', lockProduct: false, cantidad: 1, unidad: 'unidad', precioUnitario: null, fueraDeLista: true })
-          }
-        >
-          + Producto nuevo
-        </Button>
+        <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onPhotoSelected} />
+
+        <div className="flex gap-2 mb-4">
+          <Button
+            variant="ghost"
+            className="flex-1 px-2"
+            onClick={() => startScan({ productId: '', lockProduct: false, cantidad: 1, unidad: 'unidad', fueraDeLista: true })}
+          >
+            <CameraIcon className="w-4 h-4 inline mr-1 -mt-0.5" />
+            Escanear precio
+          </Button>
+          <Button
+            variant="ghost"
+            className="flex-1 px-2"
+            onClick={() =>
+              setDraft({ productId: '', lockProduct: false, cantidad: 1, unidad: 'unidad', precioUnitario: null, fueraDeLista: true })
+            }
+          >
+            + Producto nuevo
+          </Button>
+        </div>
+
+        {scanning && (
+          <div className="flex items-center justify-center gap-2 text-text-secondary text-sm mb-4">
+            <span className="w-4 h-4 rounded-full border-2 border-border border-t-accent animate-spin" />
+            Leyendo el precio…
+          </div>
+        )}
 
         <div className="space-y-3 mb-6">
           {purchaseItems.map((item) => {
@@ -142,9 +202,7 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
             return (
               <button
                 key={li.id}
-                onClick={() =>
-                  setDraft({ productId: li.product_id, lockProduct: true, cantidad: li.cantidad, unidad: li.unidad, precioUnitario: null, fueraDeLista: false })
-                }
+                onClick={() => startScan({ productId: li.product_id, lockProduct: true, cantidad: li.cantidad, unidad: li.unidad, fueraDeLista: false })}
                 className="w-full text-left border border-dashed border-pending-border bg-pending-bg rounded-[var(--radius-card)] p-4 flex items-center justify-between"
               >
                 <div>
@@ -153,7 +211,10 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
                     {li.cantidad} {li.unidad}
                   </p>
                 </div>
-                <span className="text-sm text-accent-dark">Toca para agregar precio</span>
+                <span className="text-sm text-accent-dark flex items-center gap-1">
+                  <CameraIcon className="w-4 h-4" />
+                  Toca para escanear
+                </span>
               </button>
             )
           })}

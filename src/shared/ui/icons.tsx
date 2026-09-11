@@ -18,6 +18,23 @@ export function CartIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function CameraIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <path d="M15 4H9L7 7H3v13h18V7h-4Z" />
+      <circle cx="12" cy="13" r="4" />
+    </svg>
+  )
+}
+
 export function ArrowLeftIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg
