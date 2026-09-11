@@ -18,7 +18,8 @@ npm run dev
 
 - `npm run build` — type-check + build de producción
 - `npm run lint` — ESLint
-- `npm run test` — Vitest
+- `npm run test` — Vitest en modo watch
+- `npm run test:run` — Vitest una sola pasada (CI)
 
 ## Estructura
 
@@ -29,9 +30,20 @@ src/
   entities/         # tipos de dominio
   shared/           # ui, lib, hooks
   data/
-    local/          # Dexie (flujo de compra, local-first)
+    local/          # Dexie: esquema (db.ts), tipos, y createLocalRepo (CRUD + outbox)
     remote/         # cliente Supabase (auth/admin/familia/historial, online-only)
-    sync/           # motor de sincronización (outbox)
+    sync/           # outbox (push), pull (reconciliación) y el motor que los orquesta
 supabase/
   migrations/       # esquema SQL, funciones, RLS y plantillas semilla (ver supabase/README.md)
 ```
+
+### Capa local-first (flujo de compra)
+
+Las pantallas de lista/compra (`categories`, `products`, `stores`, `shopping_lists`,
+`list_items`, `purchases`, `purchase_items`) nunca llaman a Supabase directo: usan
+los repos de `src/data/local/repos.ts` (`categoriesRepo`, `productsRepo`, etc.), que
+escriben primero en Dexie (optimista, con id generado en el cliente) y encolan la
+mutación en `outbox`. `initSync()` (se llama una vez con sesión activa) dispara un
+push+pull al arrancar y cada vez que vuelve la conexión. Conflictos: gana la última
+escritura — una fila local con cambios sin enviar nunca se pisa con un pull, y un
+push exitoso siempre sobrescribe lo que hubiera en el servidor.
