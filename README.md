@@ -33,6 +33,5 @@ src/
     remote/         # cliente Supabase (auth/admin/familia/historial, online-only)
     sync/           # motor de sincronización (outbox)
 supabase/
-  migrations/       # esquema SQL + políticas RLS
-  seed/             # plantillas semilla por familia
+  migrations/       # esquema SQL, funciones, RLS y plantillas semilla (ver supabase/README.md)
 ```
