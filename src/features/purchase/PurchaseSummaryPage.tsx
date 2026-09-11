@@ -5,6 +5,7 @@ import { categoriesRepo, listItemsRepo, productsRepo, purchaseItemsRepo, purchas
 import { categoryColorClass } from '../../shared/lib/categoryColor'
 import { formatAmount, formatUsd } from '../../shared/lib/currency'
 import { formatDateEs } from '../../shared/lib/date'
+import { sortByName } from '../../shared/lib/sortByName'
 import { Button } from '../../shared/ui/Button'
 import { CartIcon } from '../../shared/ui/icons'
 
@@ -18,14 +19,18 @@ export function PurchaseSummaryPage() {
 
 function PurchaseSummaryContent({ familyId, purchaseId }: { familyId: string; purchaseId: string }) {
   const purchase = useLiveQuery(() => purchasesRepo.get(purchaseId), [purchaseId])
-  const purchaseItems = useLiveQuery(() => purchaseItemsRepo.list(purchaseId), [purchaseId]) ?? []
   const stores = useLiveQuery(() => storesRepo.list(familyId), [familyId]) ?? []
-  const products = useLiveQuery(() => productsRepo.list(familyId), [familyId]) ?? []
+  const products = sortByName(useLiveQuery(() => productsRepo.list(familyId), [familyId]) ?? [], (p) => p.nombre)
   const categories = useLiveQuery(() => categoriesRepo.list(familyId), [familyId]) ?? []
-  const listItems = useLiveQuery(
-    () => (purchase?.shopping_list_id ? listItemsRepo.list(purchase.shopping_list_id) : Promise.resolve([])),
-    [purchase?.shopping_list_id],
-  ) ?? []
+  const productName = (productId: string) => products.find((p) => p.id === productId)?.nombre ?? ''
+  const purchaseItems = sortByName(useLiveQuery(() => purchaseItemsRepo.list(purchaseId), [purchaseId]) ?? [], (i) => productName(i.product_id))
+  const listItems = sortByName(
+    useLiveQuery(
+      () => (purchase?.shopping_list_id ? listItemsRepo.list(purchase.shopping_list_id) : Promise.resolve([])),
+      [purchase?.shopping_list_id],
+    ) ?? [],
+    (li) => productName(li.product_id),
+  )
 
   if (!purchase) return null
 

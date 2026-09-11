@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { z } from 'zod'
 import { useAuth } from '../../app/providers/AuthProvider'
 import {
@@ -13,9 +13,11 @@ import {
   transferPrincipal,
 } from '../../data/remote/family'
 import type { Profile } from '../../entities/profile'
+import { sortByName } from '../../shared/lib/sortByName'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
 import { Input } from '../../shared/ui/Input'
+import { ArrowLeftIcon } from '../../shared/ui/icons'
 
 const schema = z.object({
   nombre: z.string().min(1, 'Ingresa el nombre'),
@@ -93,6 +95,10 @@ function FamilyManagement({ familyId, viewerId, canManage }: { familyId: string;
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-sm mx-auto">
+        <Link to="/" className="inline-flex items-center gap-1 text-text-secondary hover:text-text mb-4">
+          <ArrowLeftIcon className="w-4 h-4" />
+          Inicio
+        </Link>
         <h1 className="font-heading font-bold text-2xl text-text">{familyQuery.data?.nombre ?? 'Familia'}</h1>
         <p className="text-text-secondary mt-1 mb-6">Gestiona quién tiene acceso</p>
 
@@ -128,7 +134,7 @@ function FamilyManagement({ familyId, viewerId, canManage }: { familyId: string;
         {membersQuery.isLoading && <p className="text-text-secondary">Cargando…</p>}
 
         <div className="space-y-3">
-          {membersQuery.data?.map((member) => (
+          {sortByName(membersQuery.data ?? [], (m) => m.nombre).map((member) => (
             <MemberRow
               key={member.id}
               member={member}

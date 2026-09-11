@@ -6,6 +6,7 @@ import { categoriesRepo, listItemsRepo, productsRepo, purchaseItemsRepo, purchas
 import type { CurrencyCode, PurchaseItemRow, UnitType } from '../../data/local/types'
 import { categoryColorClass } from '../../shared/lib/categoryColor'
 import { formatAmount, formatUsd } from '../../shared/lib/currency'
+import { sortByName } from '../../shared/lib/sortByName'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
 import { CameraIcon, PencilIcon } from '../../shared/ui/icons'
@@ -32,13 +33,17 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
   const navigate = useNavigate()
 
   const purchase = useLiveQuery(() => purchasesRepo.get(purchaseId), [purchaseId])
-  const purchaseItems = useLiveQuery(() => purchaseItemsRepo.list(purchaseId), [purchaseId]) ?? []
-  const products = useLiveQuery(() => productsRepo.list(familyId), [familyId]) ?? []
-  const categories = useLiveQuery(() => categoriesRepo.list(familyId), [familyId]) ?? []
-  const listItems = useLiveQuery(
-    () => (purchase?.shopping_list_id ? listItemsRepo.list(purchase.shopping_list_id) : Promise.resolve([])),
-    [purchase?.shopping_list_id],
-  ) ?? []
+  const products = sortByName(useLiveQuery(() => productsRepo.list(familyId), [familyId]) ?? [], (p) => p.nombre)
+  const categories = sortByName(useLiveQuery(() => categoriesRepo.list(familyId), [familyId]) ?? [], (c) => c.nombre)
+  const productName = (productId: string) => products.find((p) => p.id === productId)?.nombre ?? ''
+  const purchaseItems = sortByName(useLiveQuery(() => purchaseItemsRepo.list(purchaseId), [purchaseId]) ?? [], (i) => productName(i.product_id))
+  const listItems = sortByName(
+    useLiveQuery(
+      () => (purchase?.shopping_list_id ? listItemsRepo.list(purchase.shopping_list_id) : Promise.resolve([])),
+      [purchase?.shopping_list_id],
+    ) ?? [],
+    (li) => productName(li.product_id),
+  )
 
   const [draft, setDraft] = useState<PurchaseItemDraft | null>(null)
   const [showPending, setShowPending] = useState(false)
@@ -106,7 +111,30 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
     }
   }
 
+  // Una compra sin ningún producto agregado no tiene nada que resumir; en
+  // vez de dejar un registro vacío "cerrado", se borra y la lista vuelve a
+  // quedar 'activa' para no perder lo que ya se había armado.
+  async function deleteEmptyPurchase() {
+    if (!purchase) return
+    setClosing(true)
+    try {
+      if (purchase.shopping_list_id) {
+        await shoppingListsRepo.update(purchase.shopping_list_id, { estado: 'activa' })
+      }
+      await purchasesRepo.remove(purchase.id)
+      navigate(purchase.shopping_list_id ? '/lista' : '/')
+    } finally {
+      setClosing(false)
+    }
+  }
+
   function onTerminarCompra() {
+    if (purchaseItems.length === 0) {
+      if (confirm('No agregaste ningún producto a esta compra. ¿Quieres eliminarla?')) {
+        void deleteEmptyPurchase()
+      }
+      return
+    }
     if (pendingListItems.length > 0) {
       setShowPending(true)
     } else {

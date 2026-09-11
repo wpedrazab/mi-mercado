@@ -5,6 +5,7 @@ import { useAuth } from '../../app/providers/AuthProvider'
 import { db } from '../../data/local/db'
 import { categoriesRepo, productsRepo, storesRepo } from '../../data/local/repos'
 import { categoryColorClass } from '../../shared/lib/categoryColor'
+import { sortByName } from '../../shared/lib/sortByName'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
 import { PencilIcon, TrashIcon } from '../../shared/ui/icons'
@@ -17,9 +18,9 @@ export function CatalogsPage() {
 }
 
 function CatalogsContent({ familyId }: { familyId: string }) {
-  const categories = useLiveQuery(() => categoriesRepo.list(familyId), [familyId]) ?? []
-  const products = useLiveQuery(() => productsRepo.list(familyId), [familyId]) ?? []
-  const stores = useLiveQuery(() => storesRepo.list(familyId), [familyId]) ?? []
+  const categories = sortByName(useLiveQuery(() => categoriesRepo.list(familyId), [familyId]) ?? [], (c) => c.nombre)
+  const products = sortByName(useLiveQuery(() => productsRepo.list(familyId), [familyId]) ?? [], (p) => p.nombre)
+  const stores = sortByName(useLiveQuery(() => storesRepo.list(familyId), [familyId]) ?? [], (s) => s.nombre)
 
   // Local IndexedDB solo guarda los datos de la familia logueada, así que
   // no hace falta acotar estas dos por family_id: list_items/purchase_items

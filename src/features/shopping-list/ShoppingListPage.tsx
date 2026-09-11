@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { categoriesRepo, listItemsRepo, productsRepo } from '../../data/local/repos'
 import type { UnitType } from '../../data/local/types'
 import { categoryColorClass } from '../../shared/lib/categoryColor'
 import { parseDecimalInput } from '../../shared/lib/parseDecimal'
+import { sortByName } from '../../shared/lib/sortByName'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
 import { Input } from '../../shared/ui/Input'
-import { PlusIcon, TrashIcon } from '../../shared/ui/icons'
+import { ArrowLeftIcon, PlusIcon, TrashIcon } from '../../shared/ui/icons'
 import { useActiveShoppingList } from './useActiveShoppingList'
 
 const UNIT_OPTIONS: UnitType[] = ['kg', 'g', 'l', 'ml', 'unidad', 'paquete', 'cubeta']
@@ -25,9 +26,12 @@ function ShoppingListContent({ familyId, userId }: { familyId: string; userId: s
   const navigate = useNavigate()
   const list = useActiveShoppingList(familyId, userId)
 
-  const categories = useLiveQuery(() => categoriesRepo.list(familyId), [familyId]) ?? []
-  const products = useLiveQuery(() => productsRepo.list(familyId), [familyId]) ?? []
-  const items = useLiveQuery(() => (list ? listItemsRepo.list(list.id) : Promise.resolve([])), [list?.id]) ?? []
+  const categories = sortByName(useLiveQuery(() => categoriesRepo.list(familyId), [familyId]) ?? [], (c) => c.nombre)
+  const products = sortByName(useLiveQuery(() => productsRepo.list(familyId), [familyId]) ?? [], (p) => p.nombre)
+  const items = sortByName(
+    useLiveQuery(() => (list ? listItemsRepo.list(list.id) : Promise.resolve([])), [list?.id]) ?? [],
+    (item) => products.find((p) => p.id === item.product_id)?.nombre ?? '',
+  )
 
   const [categoryId, setCategoryId] = useState('')
   const [productId, setProductId] = useState('')
@@ -83,6 +87,10 @@ function ShoppingListContent({ familyId, userId }: { familyId: string; userId: s
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-sm mx-auto">
+        <Link to="/" className="inline-flex items-center gap-1 text-text-secondary hover:text-text mb-4">
+          <ArrowLeftIcon className="w-4 h-4" />
+          Inicio
+        </Link>
         <h1 className="font-heading font-bold text-2xl text-text">Lista de mercado</h1>
         <p className="text-text-secondary mt-1 mb-6">Antes de salir de casa</p>
 

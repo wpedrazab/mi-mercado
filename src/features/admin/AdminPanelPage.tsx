@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { z } from 'zod'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { createFamily, listFamiliesWithSummary, renameProfile, type FamilySummary } from '../../data/remote/admin'
+import { sortByName } from '../../shared/lib/sortByName'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
 import { Input } from '../../shared/ui/Input'
@@ -99,7 +100,7 @@ export function AdminPanelPage() {
         {familiesQuery.isError && <p className="text-alert">No se pudieron cargar las familias.</p>}
 
         <div className="space-y-3">
-          {familiesQuery.data?.map((summary) => (
+          {sortByName(familiesQuery.data ?? [], (s) => s.family.nombre).map((summary) => (
             <FamilyCard key={summary.family.id} summary={summary} />
           ))}
         </div>

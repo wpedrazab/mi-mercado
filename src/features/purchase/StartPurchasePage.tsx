@@ -5,6 +5,7 @@ import { useAuth } from '../../app/providers/AuthProvider'
 import { purchasesRepo, storesRepo } from '../../data/local/repos'
 import type { CurrencyCode } from '../../data/local/types'
 import { parseDecimalInput } from '../../shared/lib/parseDecimal'
+import { sortByName } from '../../shared/lib/sortByName'
 import { useActiveShoppingList } from '../shopping-list/useActiveShoppingList'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
@@ -26,7 +27,7 @@ export function StartPurchasePage() {
 function StartPurchaseContent({ familyId, userId }: { familyId: string; userId: string }) {
   const navigate = useNavigate()
   const list = useActiveShoppingList(familyId, userId)
-  const stores = useLiveQuery(() => storesRepo.list(familyId), [familyId]) ?? []
+  const stores = sortByName(useLiveQuery(() => storesRepo.list(familyId), [familyId]) ?? [], (s) => s.nombre)
 
   const [storeId, setStoreId] = useState('')
   const [newStoreName, setNewStoreName] = useState<string | null>(null)
