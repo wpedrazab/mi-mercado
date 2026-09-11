@@ -8,6 +8,7 @@ import { UpdatePasswordPage } from './features/auth/UpdatePasswordPage'
 import { AdminPanelPage } from './features/admin/AdminPanelPage'
 import { FamilyManagementPage } from './features/family/FamilyManagementPage'
 import { ShoppingListPage } from './features/shopping-list/ShoppingListPage'
+import { CatalogsPage } from './features/catalogs/CatalogsPage'
 import { StartPurchasePage } from './features/purchase/StartPurchasePage'
 import { LivePurchasePage } from './features/purchase/LivePurchasePage'
 import { PurchaseSummaryPage } from './features/purchase/PurchaseSummaryPage'
@@ -49,6 +50,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ShoppingListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/catalogos"
+            element={
+              <ProtectedRoute>
+                <CatalogsPage />
               </ProtectedRoute>
             }
           />

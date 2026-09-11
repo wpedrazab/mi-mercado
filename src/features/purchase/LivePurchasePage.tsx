@@ -200,10 +200,9 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
           {pendingListItems.map((li) => {
             const product = products.find((p) => p.id === li.product_id)
             return (
-              <button
+              <div
                 key={li.id}
-                onClick={() => startScan({ productId: li.product_id, lockProduct: true, cantidad: li.cantidad, unidad: li.unidad, fueraDeLista: false })}
-                className="w-full text-left border border-dashed border-pending-border bg-pending-bg rounded-[var(--radius-card)] p-4 flex items-center justify-between"
+                className="w-full border border-dashed border-pending-border bg-pending-bg rounded-[var(--radius-card)] p-4 flex items-center justify-between gap-3"
               >
                 <div>
                   <p className="font-semibold text-text">{product?.nombre ?? '…'}</p>
@@ -211,11 +210,25 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
                     {li.cantidad} {li.unidad}
                   </p>
                 </div>
-                <span className="text-sm text-accent-dark flex items-center gap-1">
-                  <CameraIcon className="w-4 h-4" />
-                  Toca para escanear
-                </span>
-              </button>
+                <div className="flex gap-2 shrink-0">
+                  <button
+                    onClick={() =>
+                      setDraft({ productId: li.product_id, lockProduct: true, cantidad: li.cantidad, unidad: li.unidad, precioUnitario: null, fueraDeLista: false })
+                    }
+                    aria-label={`Cargar precio a mano para ${product?.nombre ?? 'producto'}`}
+                    className="w-11 h-11 rounded-full border border-border bg-surface text-text-secondary flex items-center justify-center"
+                  >
+                    <PencilIcon className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => startScan({ productId: li.product_id, lockProduct: true, cantidad: li.cantidad, unidad: li.unidad, fueraDeLista: false })}
+                    aria-label={`Escanear precio de ${product?.nombre ?? 'producto'}`}
+                    className="w-11 h-11 rounded-full bg-accent text-white flex items-center justify-center"
+                  >
+                    <CameraIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             )
           })}
         </div>

@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { purchaseItemsRepo } from '../../data/local/repos'
 import type { CategoryRow, ProductRow, PurchaseRow, UnitType } from '../../data/local/types'
-import { formatAmount, formatUsd, toUsd } from '../../shared/lib/currency'
 import { categoryColorClass } from '../../shared/lib/categoryColor'
+import { formatAmount, formatUsd, toUsd } from '../../shared/lib/currency'
+import { parseDecimalInput } from '../../shared/lib/parseDecimal'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
 
@@ -32,25 +33,31 @@ export function ConfirmPurchaseItemModal({
   onClose: () => void
 }) {
   const [productId, setProductId] = useState(draft.productId)
-  const [cantidad, setCantidad] = useState(draft.cantidad)
+  const [cantidadStr, setCantidadStr] = useState(String(draft.cantidad))
   const [precio, setPrecio] = useState(draft.precioUnitario != null ? String(draft.precioUnitario) : '')
   const [saving, setSaving] = useState(false)
 
   const product = products.find((p) => p.id === productId)
   const category = product ? categories.find((c) => c.id === product.category_id) : undefined
-  const precioNum = Number(precio) || 0
-  const subtotal = precioNum * cantidad
-  const subtotalUsd = toUsd(precioNum, purchase.moneda, purchase.tasa_cambio) * cantidad
+  const precioNum = parseDecimalInput(precio)
+  const cantidadNum = parseDecimalInput(cantidadStr)
+  const subtotal = precioNum * cantidadNum
+  const subtotalUsd = toUsd(precioNum, purchase.moneda, purchase.tasa_cambio) * cantidadNum
+
+  function adjustCantidad(delta: number) {
+    const next = Math.max(0.01, Math.round((cantidadNum + delta) * 100) / 100)
+    setCantidadStr(String(next))
+  }
 
   async function save() {
-    if (!productId || !precio || cantidad <= 0) return
+    if (!productId || !precio || cantidadNum <= 0) return
     setSaving(true)
     try {
       const precioUnitarioUsd = toUsd(precioNum, purchase.moneda, purchase.tasa_cambio)
       const payload = {
         purchase_id: purchase.id,
         product_id: productId,
-        cantidad,
+        cantidad: cantidadNum,
         unidad: draft.unidad,
         precio_unitario: precioNum,
         precio_unitario_usd: precioUnitarioUsd,
@@ -115,9 +122,8 @@ export function ConfirmPurchaseItemModal({
           <span className="text-text-secondary">{purchase.moneda === 'VES' ? 'Bs' : '$'}</span>
           <input
             id="modal-precio"
-            type="number"
-            min="0"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
             autoFocus
             className="flex-1 min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-4 text-text font-heading font-bold text-xl"
             value={precio}
@@ -126,24 +132,32 @@ export function ConfirmPurchaseItemModal({
           <span className="text-text-secondary text-sm">/ {draft.unidad}</span>
         </div>
 
-        <p className="block text-sm font-semibold text-text-label mb-2">¿Cuántos compraste?</p>
-        <div className="flex items-center gap-4 mb-4">
+        <label className="block text-sm font-semibold text-text-label mb-2" htmlFor="modal-cantidad">
+          ¿Cuántos compraste?
+        </label>
+        <div className="flex items-center gap-3 mb-4">
           <button
             type="button"
             aria-label="Restar"
-            onClick={() => setCantidad((c) => Math.max(0.01, Math.round((c - 1) * 100) / 100))}
-            className="w-11 h-11 rounded-full border border-border text-text font-bold"
+            onClick={() => adjustCantidad(-1)}
+            className="w-11 h-11 shrink-0 rounded-full border border-border text-text font-bold"
           >
             −
           </button>
-          <span className="font-heading font-bold text-xl text-text">
-            {cantidad} {draft.unidad}
-          </span>
+          <input
+            id="modal-cantidad"
+            type="text"
+            inputMode="decimal"
+            value={cantidadStr}
+            onChange={(e) => setCantidadStr(e.target.value)}
+            className="w-20 min-h-11 text-center rounded-[var(--radius-field)] border border-border bg-surface font-heading font-bold text-xl text-text"
+          />
+          <span className="text-text-secondary">{draft.unidad}</span>
           <button
             type="button"
             aria-label="Sumar"
-            onClick={() => setCantidad((c) => Math.round((c + 1) * 100) / 100)}
-            className="w-11 h-11 rounded-full bg-accent text-white font-bold"
+            onClick={() => adjustCantidad(1)}
+            className="w-11 h-11 shrink-0 rounded-full bg-accent text-white font-bold"
           >
             +
           </button>
@@ -161,7 +175,7 @@ export function ConfirmPurchaseItemModal({
           <Button variant="ghost" className="flex-1" onClick={onClose}>
             Cancelar
           </Button>
-          <Button className="flex-1" disabled={saving || !productId || !precio} onClick={save}>
+          <Button className="flex-1" disabled={saving || !productId || !precio || cantidadNum <= 0} onClick={save}>
             {draft.existingItemId ? 'Guardar' : 'Agregar al carrito'}
           </Button>
         </div>

@@ -5,6 +5,7 @@ import { useAuth } from '../../app/providers/AuthProvider'
 import { categoriesRepo, listItemsRepo, productsRepo } from '../../data/local/repos'
 import type { UnitType } from '../../data/local/types'
 import { categoryColorClass } from '../../shared/lib/categoryColor'
+import { parseDecimalInput } from '../../shared/lib/parseDecimal'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
 import { Input } from '../../shared/ui/Input'
@@ -63,11 +64,12 @@ function ShoppingListContent({ familyId, userId }: { familyId: string; userId: s
   }
 
   async function addItem() {
-    if (!list || !productId || !cantidad) return
+    const cantidadNum = parseDecimalInput(cantidad)
+    if (!list || !productId || !cantidad || cantidadNum <= 0) return
     await listItemsRepo.create({
       list_id: list.id,
       product_id: productId,
-      cantidad: Number(cantidad),
+      cantidad: cantidadNum,
       unidad,
       created_at: new Date().toISOString(),
     })
@@ -182,9 +184,8 @@ function ShoppingListContent({ familyId, userId }: { familyId: string; userId: s
               <Input
                 id="cantidad"
                 label="Cantidad"
-                type="number"
-                min="0"
-                step="0.01"
+                type="text"
+                inputMode="decimal"
                 value={cantidad}
                 onChange={(e) => setCantidad(e.target.value)}
               />

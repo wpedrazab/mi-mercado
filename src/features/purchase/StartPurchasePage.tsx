@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { purchasesRepo, storesRepo } from '../../data/local/repos'
 import type { CurrencyCode } from '../../data/local/types'
+import { parseDecimalInput } from '../../shared/lib/parseDecimal'
 import { useActiveShoppingList } from '../shopping-list/useActiveShoppingList'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
@@ -57,8 +58,8 @@ function StartPurchaseContent({ familyId, userId }: { familyId: string; userId: 
         store_id: storeId,
         fecha_compra: fecha,
         moneda,
-        tasa_cambio: moneda === 'USD' ? 1 : Number(tasaCambio),
-        presupuesto_usd: presupuesto ? Number(presupuesto) : null,
+        tasa_cambio: moneda === 'USD' ? 1 : parseDecimalInput(tasaCambio),
+        presupuesto_usd: presupuesto ? parseDecimalInput(presupuesto) : null,
         estado: 'en_curso',
         creada_por: userId,
         factura_path: null,
@@ -146,9 +147,8 @@ function StartPurchaseContent({ familyId, userId }: { familyId: string; userId: 
             <Input
               id="tasa-cambio"
               label="Tasa de cambio"
-              type="number"
-              min="0"
-              step="0.0001"
+              type="text"
+              inputMode="decimal"
               placeholder={`1 USD = ? ${moneda === 'VES' ? 'Bs' : '$'}`}
               value={tasaCambio}
               onChange={(e) => setTasaCambio(e.target.value)}
@@ -158,9 +158,8 @@ function StartPurchaseContent({ familyId, userId }: { familyId: string; userId: 
           <Input
             id="presupuesto"
             label="Presupuesto para esta compra (opcional, en USD)"
-            type="number"
-            min="0"
-            step="0.01"
+            type="text"
+            inputMode="decimal"
             placeholder="Ej: 8,00"
             value={presupuesto}
             onChange={(e) => setPresupuesto(e.target.value)}

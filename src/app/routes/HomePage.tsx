@@ -82,6 +82,11 @@ function HomeContent({
                   Mi familia
                 </Button>
               </Link>
+              <Link to="/catalogos" className="block">
+                <Button variant="ghost" className="w-full">
+                  Catálogos
+                </Button>
+              </Link>
             </>
           )}
           <Button variant="ghost" className="w-full" onClick={onSignOut}>
