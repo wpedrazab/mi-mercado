@@ -45,7 +45,7 @@ function HomeContent({
       <div className="max-w-sm mx-auto">
         <h1 className="font-heading font-bold text-2xl text-text">Hola, {profile.nombre}</h1>
         <p className="text-text-secondary mt-1">
-          {profile.rol === 'admin' ? 'Administrador de la plataforma' : family ? `Familia ${family.nombre}` : 'Sin familia asignada'}
+          {profile.rol === 'admin' ? 'Administrador de la plataforma' : (family?.nombre ?? 'Sin familia asignada')}
         </p>
 
         {purchasesEnCurso.length > 0 && (

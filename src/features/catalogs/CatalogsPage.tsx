@@ -4,11 +4,12 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { db } from '../../data/local/db'
 import { categoriesRepo, productsRepo, storesRepo } from '../../data/local/repos'
+import type { CategoryRow } from '../../data/local/types'
 import { categoryColorClass } from '../../shared/lib/categoryColor'
 import { sortByName } from '../../shared/lib/sortByName'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
-import { PencilIcon, TrashIcon } from '../../shared/ui/icons'
+import { ArrowLeftIcon, PencilIcon, TrashIcon } from '../../shared/ui/icons'
 
 export function CatalogsPage() {
   const auth = useAuth()
@@ -39,14 +40,29 @@ function CatalogsContent({ familyId }: { familyId: string }) {
 
   const categoriesWithProducts = new Set(products.map((p) => p.category_id))
 
+  const [productCategoryFilter, setProductCategoryFilter] = useState('')
+  const filteredProducts = productCategoryFilter ? products.filter((p) => p.category_id === productCategoryFilter) : products
+
   return (
     <div className="min-h-screen p-6">
       <div className="max-w-sm mx-auto">
+        <Link to="/" className="inline-flex items-center gap-1 text-text-secondary hover:text-text mb-4">
+          <ArrowLeftIcon className="w-4 h-4" />
+          Inicio
+        </Link>
         <h1 className="font-heading font-bold text-2xl text-text">Catálogos</h1>
         <p className="text-text-secondary mt-1 mb-6">Categorías, productos y supermercados de tu familia</p>
 
-        <Section title={`Categorías (${categories.length})`}>
-          {categories.length === 0 && <EmptyHint text="Todavía no hay categorías. Se crean desde Lista de mercado." />}
+        <Section
+          title={`Categorías (${categories.length})`}
+          addForm={
+            <AddNameForm
+              placeholder="Nombre de la categoría"
+              onAdd={(nombre) => categoriesRepo.create({ family_id: familyId, nombre, created_at: new Date().toISOString() })}
+            />
+          }
+        >
+          {categories.length === 0 && <EmptyHint text="Todavía no hay categorías." />}
           {categories.map((c) => (
             <EditableRow
               key={c.id}
@@ -64,9 +80,28 @@ function CatalogsContent({ familyId }: { familyId: string }) {
           ))}
         </Section>
 
-        <Section title={`Productos (${products.length})`}>
-          {products.length === 0 && <EmptyHint text="Todavía no hay productos. Se crean desde Lista de mercado." />}
-          {products.map((p) => {
+        <Section
+          title={`Productos (${products.length})`}
+          addForm={<AddProductForm categories={categories} familyId={familyId} />}
+        >
+          {categories.length > 0 && (
+            <select
+              aria-label="Filtrar productos por categoría"
+              value={productCategoryFilter}
+              onChange={(e) => setProductCategoryFilter(e.target.value)}
+              className="w-full min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-3 text-text mb-2"
+            >
+              <option value="">Todas las categorías</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          )}
+          {products.length === 0 && <EmptyHint text="Todavía no hay productos." />}
+          {products.length > 0 && filteredProducts.length === 0 && <EmptyHint text="Esta categoría no tiene productos todavía." />}
+          {filteredProducts.map((p) => {
             const category = categories.find((c) => c.id === p.category_id)
             return (
               <EditableRow
@@ -88,8 +123,16 @@ function CatalogsContent({ familyId }: { familyId: string }) {
           })}
         </Section>
 
-        <Section title={`Supermercados (${stores.length})`}>
-          {stores.length === 0 && <EmptyHint text="Todavía no hay supermercados. Se crean desde Iniciar compra." />}
+        <Section
+          title={`Supermercados (${stores.length})`}
+          addForm={
+            <AddNameForm
+              placeholder="Nombre del supermercado"
+              onAdd={(nombre) => storesRepo.create({ family_id: familyId, nombre, created_at: new Date().toISOString() })}
+            />
+          }
+        >
+          {stores.length === 0 && <EmptyHint text="Todavía no hay supermercados." />}
           {stores.map((s) => (
             <EditableRow
               key={s.id}
@@ -101,26 +144,137 @@ function CatalogsContent({ familyId }: { familyId: string }) {
             />
           ))}
         </Section>
-
-        <Link to="/" className="block text-center text-accent-dark font-semibold hover:underline mt-4">
-          Volver
-        </Link>
       </div>
     </div>
   )
 }
 
-function Section({ title, children }: { title: string; children: ReactNode }) {
+function Section({ title, addForm, children }: { title: string; addForm: ReactNode; children: ReactNode }) {
   return (
     <div className="mb-8">
       <h2 className="font-heading font-semibold text-lg text-text mb-3">{title}</h2>
+      <div className="mb-2">{addForm}</div>
       <div className="space-y-2">{children}</div>
     </div>
   )
 }
 
 function EmptyHint({ text }: { text: string }) {
-  return <p className="text-sm text-text-secondary">{text}</p>
+  return <p className="text-sm text-text-secondary mb-2">{text}</p>
+}
+
+function AddNameForm({ placeholder, onAdd }: { placeholder: string; onAdd: (nombre: string) => Promise<unknown> }) {
+  const [adding, setAdding] = useState(false)
+  const [value, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  if (!adding) {
+    return (
+      <button type="button" className="text-sm text-accent-dark hover:underline" onClick={() => setAdding(true)}>
+        + Agregar
+      </button>
+    )
+  }
+
+  return (
+    <Card className="p-3">
+      <div className="flex gap-2">
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder={placeholder}
+          className="flex-1 min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-3 text-text"
+        />
+        <Button
+          className="px-3"
+          disabled={busy || !value.trim()}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              await onAdd(value.trim())
+              setValue('')
+              setAdding(false)
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          Agregar
+        </Button>
+        <Button variant="ghost" className="px-3" onClick={() => setAdding(false)}>
+          Cancelar
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
+function AddProductForm({ categories, familyId }: { categories: CategoryRow[]; familyId: string }) {
+  const [adding, setAdding] = useState(false)
+  const [nombre, setNombre] = useState('')
+  const [categoryId, setCategoryId] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  if (!adding) {
+    return (
+      <button type="button" className="text-sm text-accent-dark hover:underline" onClick={() => setAdding(true)}>
+        + Agregar
+      </button>
+    )
+  }
+
+  return (
+    <Card className="p-3 space-y-2">
+      <select
+        value={categoryId}
+        onChange={(e) => setCategoryId(e.target.value)}
+        className="w-full min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-3 text-text"
+      >
+        <option value="">Selecciona una categoría</option>
+        {categories.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nombre}
+          </option>
+        ))}
+      </select>
+      <div className="flex gap-2">
+        <input
+          autoFocus
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          placeholder="Nombre del producto"
+          className="flex-1 min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-3 text-text"
+        />
+        <Button
+          className="px-3"
+          disabled={busy || !nombre.trim() || !categoryId}
+          onClick={async () => {
+            setBusy(true)
+            try {
+              await productsRepo.create({
+                family_id: familyId,
+                category_id: categoryId,
+                nombre: nombre.trim(),
+                unidad_default: 'unidad',
+                created_at: new Date().toISOString(),
+              })
+              setNombre('')
+              setAdding(false)
+            } finally {
+              setBusy(false)
+            }
+          }}
+        >
+          Agregar
+        </Button>
+        <Button variant="ghost" className="px-3" onClick={() => setAdding(false)}>
+          Cancelar
+        </Button>
+      </div>
+      {categories.length === 0 && <p className="text-xs text-text-secondary">Crea una categoría primero.</p>}
+    </Card>
+  )
 }
 
 function EditableRow({

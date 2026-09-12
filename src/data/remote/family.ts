@@ -27,6 +27,12 @@ export async function inviteMember(input: { familyId: string; nombre: string; em
   return data as { ok: true }
 }
 
+/** Cambia solo el nombre (rename_family) — el estado activa/inactiva sigue siendo solo del admin. */
+export async function renameFamily(familyId: string, nombre: string) {
+  const { error } = await supabase.rpc('rename_family', { p_family_id: familyId, p_nombre: nombre })
+  if (error) throw error
+}
+
 /** Traspaso atómico: ver transfer_principal() en las migraciones de RLS. */
 export async function transferPrincipal(familyId: string, newPrincipalId: string) {
   const { error } = await supabase.rpc('transfer_principal', {

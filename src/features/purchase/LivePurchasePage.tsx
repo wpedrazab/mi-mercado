@@ -111,15 +111,21 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
     }
   }
 
-  // Una compra sin ningún producto agregado no tiene nada que resumir; en
-  // vez de dejar un registro vacío "cerrado", se borra y la lista vuelve a
-  // quedar 'activa' para no perder lo que ya se había armado.
-  async function deleteEmptyPurchase() {
+  // Descarta la compra por completo (con o sin productos ya registrados) y
+  // deja la lista de mercado 'activa' de nuevo para no perder lo que ya se
+  // había armado. El borrado local no aplica ON DELETE CASCADE (eso solo lo
+  // hace Postgres del lado remoto) — hay que borrar los ítems uno por uno
+  // antes de borrar la compra, si no quedan huérfanos en el dispositivo y
+  // sus deletes nunca se encolan hacia Supabase.
+  async function cancelPurchase() {
     if (!purchase) return
     setClosing(true)
     try {
       if (purchase.shopping_list_id) {
         await shoppingListsRepo.update(purchase.shopping_list_id, { estado: 'activa' })
+      }
+      for (const item of purchaseItems) {
+        await purchaseItemsRepo.remove(item.id)
       }
       await purchasesRepo.remove(purchase.id)
       navigate(purchase.shopping_list_id ? '/lista' : '/')
@@ -128,10 +134,18 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
     }
   }
 
+  function onCancelarCompra() {
+    const mensaje =
+      purchaseItems.length === 0
+        ? '¿Cancelar esta compra?'
+        : `¿Cancelar esta compra? Vas a perder ${purchaseItems.length} producto${purchaseItems.length === 1 ? '' : 's'} que ya registraste.`
+    if (confirm(mensaje)) void cancelPurchase()
+  }
+
   function onTerminarCompra() {
     if (purchaseItems.length === 0) {
       if (confirm('No agregaste ningún producto a esta compra. ¿Quieres eliminarla?')) {
-        void deleteEmptyPurchase()
+        void cancelPurchase()
       }
       return
     }
@@ -264,6 +278,14 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
         <Button className="w-full" disabled={closing} onClick={onTerminarCompra}>
           Terminar compra
         </Button>
+        <button
+          type="button"
+          disabled={closing}
+          onClick={onCancelarCompra}
+          className="block w-full text-center text-sm text-text-secondary hover:text-alert mt-3 disabled:opacity-40"
+        >
+          Cancelar compra
+        </button>
       </div>
 
       {draft && (

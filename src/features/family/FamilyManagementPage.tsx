@@ -10,6 +10,7 @@ import {
   inviteMember,
   listFamilyMembers,
   removeFamilyMember,
+  renameFamily,
   transferPrincipal,
 } from '../../data/remote/family'
 import type { Profile } from '../../entities/profile'
@@ -17,7 +18,7 @@ import { sortByName } from '../../shared/lib/sortByName'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
 import { Input } from '../../shared/ui/Input'
-import { ArrowLeftIcon } from '../../shared/ui/icons'
+import { ArrowLeftIcon, PencilIcon } from '../../shared/ui/icons'
 
 const schema = z.object({
   nombre: z.string().min(1, 'Ingresa el nombre'),
@@ -55,6 +56,8 @@ export function FamilyManagementPage() {
 function FamilyManagement({ familyId, viewerId, canManage }: { familyId: string; viewerId: string; canManage: boolean }) {
   const queryClient = useQueryClient()
   const [actionError, setActionError] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState('')
 
   const familyQuery = useQuery({ queryKey: ['family', familyId], queryFn: () => fetchFamily(familyId) })
   const membersQuery = useQuery({ queryKey: ['family', familyId, 'members'], queryFn: () => listFamilyMembers(familyId) })
@@ -62,6 +65,16 @@ function FamilyManagement({ familyId, viewerId, canManage }: { familyId: string;
   function invalidate() {
     void queryClient.invalidateQueries({ queryKey: ['family', familyId] })
   }
+
+  const renameMutation = useMutation({
+    mutationFn: (nombre: string) => renameFamily(familyId, nombre),
+    onSuccess: () => {
+      setEditingName(false)
+      setActionError(null)
+      invalidate()
+    },
+    onError: (err: Error) => setActionError(err.message),
+  })
 
   const {
     register,
@@ -99,7 +112,38 @@ function FamilyManagement({ familyId, viewerId, canManage }: { familyId: string;
           <ArrowLeftIcon className="w-4 h-4" />
           Inicio
         </Link>
-        <h1 className="font-heading font-bold text-2xl text-text">{familyQuery.data?.nombre ?? 'Familia'}</h1>
+        {editingName ? (
+          <div className="flex gap-2 mb-1">
+            <input
+              autoFocus
+              value={nameValue}
+              onChange={(e) => setNameValue(e.target.value)}
+              className="flex-1 min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-3 text-text font-heading font-bold text-xl"
+            />
+            <Button className="px-3" disabled={renameMutation.isPending || !nameValue.trim()} onClick={() => renameMutation.mutate(nameValue.trim())}>
+              Guardar
+            </Button>
+            <Button variant="ghost" className="px-3" onClick={() => setEditingName(false)}>
+              Cancelar
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <h1 className="font-heading font-bold text-2xl text-text">{familyQuery.data?.nombre ?? 'Familia'}</h1>
+            {canManage && (
+              <button
+                onClick={() => {
+                  setNameValue(familyQuery.data?.nombre ?? '')
+                  setEditingName(true)
+                }}
+                aria-label="Renombrar familia"
+                className="text-text-muted hover:text-accent-dark"
+              >
+                <PencilIcon className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        )}
         <p className="text-text-secondary mt-1 mb-6">Gestiona quién tiene acceso</p>
 
         {canManage && (
