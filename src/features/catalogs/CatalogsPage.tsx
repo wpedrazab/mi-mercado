@@ -4,8 +4,9 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { db } from '../../data/local/db'
 import { categoriesRepo, productsRepo, storesRepo } from '../../data/local/repos'
-import type { CategoryRow } from '../../data/local/types'
+import { UNIT_TYPES, type CategoryRow, type ProductRow, type UnitType } from '../../data/local/types'
 import { categoryColorClass } from '../../shared/lib/categoryColor'
+import { isDuplicateName } from '../../shared/lib/duplicateCheck'
 import { sortByName } from '../../shared/lib/sortByName'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
@@ -58,6 +59,7 @@ function CatalogsContent({ familyId }: { familyId: string }) {
           addForm={
             <AddNameForm
               placeholder="Nombre de la categoría"
+              isNameTaken={(nombre) => isDuplicateName(categories, nombre)}
               onAdd={(nombre) => categoriesRepo.create({ family_id: familyId, nombre, created_at: new Date().toISOString() })}
             />
           }
@@ -67,6 +69,7 @@ function CatalogsContent({ familyId }: { familyId: string }) {
             <EditableRow
               key={c.id}
               nombre={c.nombre}
+              isNameTaken={(nombre) => isDuplicateName(categories, nombre, c.id)}
               extra={
                 <span className={`text-xs font-semibold rounded-full px-2 py-0.5 ${categoryColorClass(c.nombre, c.id)}`}>
                   {products.filter((p) => p.category_id === c.id).length} productos
@@ -82,7 +85,7 @@ function CatalogsContent({ familyId }: { familyId: string }) {
 
         <Section
           title={`Productos (${products.length})`}
-          addForm={<AddProductForm categories={categories} familyId={familyId} />}
+          addForm={<AddProductForm categories={categories} products={products} familyId={familyId} />}
         >
           {categories.length > 0 && (
             <select
@@ -107,12 +110,34 @@ function CatalogsContent({ familyId }: { familyId: string }) {
               <EditableRow
                 key={p.id}
                 nombre={p.nombre}
+                isNameTaken={(nombre) => isDuplicateName(products, nombre, p.id)}
                 extra={
-                  category && (
-                    <span className={`text-xs font-semibold rounded-full px-2 py-0.5 ${categoryColorClass(category.nombre, category.id)}`}>
-                      {category.nombre}
-                    </span>
-                  )
+                  <>
+                    <select
+                      aria-label={`Categoría de ${p.nombre}`}
+                      value={p.category_id}
+                      onChange={(e) => productsRepo.update(p.id, { category_id: e.target.value })}
+                      className={`text-xs font-semibold rounded-full px-2 py-0.5 border-0 ${category ? categoryColorClass(category.nombre, category.id) : ''}`}
+                    >
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      aria-label={`Unidad de ${p.nombre}`}
+                      value={p.unidad_default}
+                      onChange={(e) => productsRepo.update(p.id, { unidad_default: e.target.value as UnitType })}
+                      className="text-xs font-semibold rounded-full px-2 py-0.5 border border-border bg-subtle text-text-secondary"
+                    >
+                      {UNIT_TYPES.map((u) => (
+                        <option key={u} value={u}>
+                          {u}
+                        </option>
+                      ))}
+                    </select>
+                  </>
                 }
                 onRename={(nuevo) => productsRepo.update(p.id, { nombre: nuevo })}
                 onDelete={() => productsRepo.remove(p.id)}
@@ -128,6 +153,7 @@ function CatalogsContent({ familyId }: { familyId: string }) {
           addForm={
             <AddNameForm
               placeholder="Nombre del supermercado"
+              isNameTaken={(nombre) => isDuplicateName(stores, nombre)}
               onAdd={(nombre) => storesRepo.create({ family_id: familyId, nombre, created_at: new Date().toISOString() })}
             />
           }
@@ -137,6 +163,7 @@ function CatalogsContent({ familyId }: { familyId: string }) {
             <EditableRow
               key={s.id}
               nombre={s.nombre}
+              isNameTaken={(nombre) => isDuplicateName(stores, nombre, s.id)}
               onRename={(nuevo) => storesRepo.update(s.id, { nombre: nuevo })}
               onDelete={() => storesRepo.remove(s.id)}
               deleteDisabled={usedStoreIds.has(s.id)}
@@ -163,10 +190,19 @@ function EmptyHint({ text }: { text: string }) {
   return <p className="text-sm text-text-secondary mb-2">{text}</p>
 }
 
-function AddNameForm({ placeholder, onAdd }: { placeholder: string; onAdd: (nombre: string) => Promise<unknown> }) {
+function AddNameForm({
+  placeholder,
+  isNameTaken,
+  onAdd,
+}: {
+  placeholder: string
+  isNameTaken: (nombre: string) => boolean
+  onAdd: (nombre: string) => Promise<unknown>
+}) {
   const [adding, setAdding] = useState(false)
   const [value, setValue] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   if (!adding) {
     return (
@@ -182,7 +218,10 @@ function AddNameForm({ placeholder, onAdd }: { placeholder: string; onAdd: (nomb
         <input
           autoFocus
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value)
+            setError(null)
+          }}
           placeholder={placeholder}
           className="flex-1 min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-3 text-text"
         />
@@ -190,6 +229,10 @@ function AddNameForm({ placeholder, onAdd }: { placeholder: string; onAdd: (nomb
           className="px-3"
           disabled={busy || !value.trim()}
           onClick={async () => {
+            if (isNameTaken(value)) {
+              setError('Ya existe algo con ese nombre.')
+              return
+            }
             setBusy(true)
             try {
               await onAdd(value.trim())
@@ -206,15 +249,18 @@ function AddNameForm({ placeholder, onAdd }: { placeholder: string; onAdd: (nomb
           Cancelar
         </Button>
       </div>
+      {error && <p className="text-xs text-alert mt-2">{error}</p>}
     </Card>
   )
 }
 
-function AddProductForm({ categories, familyId }: { categories: CategoryRow[]; familyId: string }) {
+function AddProductForm({ categories, products, familyId }: { categories: CategoryRow[]; products: ProductRow[]; familyId: string }) {
   const [adding, setAdding] = useState(false)
   const [nombre, setNombre] = useState('')
   const [categoryId, setCategoryId] = useState('')
+  const [unidad, setUnidad] = useState<UnitType>('unidad')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   if (!adding) {
     return (
@@ -242,24 +288,46 @@ function AddProductForm({ categories, familyId }: { categories: CategoryRow[]; f
         <input
           autoFocus
           value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
+          onChange={(e) => {
+            setNombre(e.target.value)
+            setError(null)
+          }}
           placeholder="Nombre del producto"
           className="flex-1 min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-3 text-text"
         />
+        <select
+          aria-label="Unidad de medida"
+          value={unidad}
+          onChange={(e) => setUnidad(e.target.value as UnitType)}
+          className="min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-2 text-text"
+        >
+          {UNIT_TYPES.map((u) => (
+            <option key={u} value={u}>
+              {u}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex gap-2">
         <Button
-          className="px-3"
+          className="flex-1"
           disabled={busy || !nombre.trim() || !categoryId}
           onClick={async () => {
+            if (isDuplicateName(products, nombre)) {
+              setError('Ya existe un producto con ese nombre.')
+              return
+            }
             setBusy(true)
             try {
               await productsRepo.create({
                 family_id: familyId,
                 category_id: categoryId,
                 nombre: nombre.trim(),
-                unidad_default: 'unidad',
+                unidad_default: unidad,
                 created_at: new Date().toISOString(),
               })
               setNombre('')
+              setUnidad('unidad')
               setAdding(false)
             } finally {
               setBusy(false)
@@ -268,11 +336,12 @@ function AddProductForm({ categories, familyId }: { categories: CategoryRow[]; f
         >
           Agregar
         </Button>
-        <Button variant="ghost" className="px-3" onClick={() => setAdding(false)}>
+        <Button variant="ghost" className="flex-1" onClick={() => setAdding(false)}>
           Cancelar
         </Button>
       </div>
       {categories.length === 0 && <p className="text-xs text-text-secondary">Crea una categoría primero.</p>}
+      {error && <p className="text-xs text-alert">{error}</p>}
     </Card>
   )
 }
@@ -280,6 +349,7 @@ function AddProductForm({ categories, familyId }: { categories: CategoryRow[]; f
 function EditableRow({
   nombre,
   extra,
+  isNameTaken,
   onRename,
   onDelete,
   deleteDisabled,
@@ -287,6 +357,7 @@ function EditableRow({
 }: {
   nombre: string
   extra?: ReactNode
+  isNameTaken: (nombre: string) => boolean
   onRename: (nuevoNombre: string) => Promise<unknown>
   onDelete: () => Promise<void>
   deleteDisabled: boolean
@@ -304,13 +375,20 @@ function EditableRow({
           <input
             autoFocus
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => {
+              setValue(e.target.value)
+              setError(null)
+            }}
             className="flex-1 min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-3 text-text"
           />
           <Button
             className="px-3"
             disabled={busy || !value.trim()}
             onClick={async () => {
+              if (isNameTaken(value)) {
+                setError('Ya existe algo con ese nombre.')
+                return
+              }
               setBusy(true)
               try {
                 await onRename(value.trim())
@@ -327,12 +405,14 @@ function EditableRow({
             className="px-3"
             onClick={() => {
               setValue(nombre)
+              setError(null)
               setEditing(false)
             }}
           >
             Cancelar
           </Button>
         </div>
+        {error && <p className="text-xs text-alert mt-2">{error}</p>}
       </Card>
     )
   }

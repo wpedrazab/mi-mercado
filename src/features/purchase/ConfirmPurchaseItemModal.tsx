@@ -6,6 +6,7 @@ import { formatAmount, formatUsd, toUsd } from '../../shared/lib/currency'
 import { parseDecimalInput } from '../../shared/lib/parseDecimal'
 import { Button } from '../../shared/ui/Button'
 import { Card } from '../../shared/ui/Card'
+import { SearchableSelect } from '../../shared/ui/SearchableSelect'
 
 export interface PurchaseItemDraft {
   productId: string
@@ -24,18 +25,22 @@ export function ConfirmPurchaseItemModal({
   products,
   categories,
   draft,
+  existingProductIds,
   onClose,
 }: {
   purchase: PurchaseRow
   products: ProductRow[]
   categories: CategoryRow[]
   draft: PurchaseItemDraft
+  /** product_id de los ítems ya agregados a esta compra (para no repetir uno). */
+  existingProductIds: Set<string>
   onClose: () => void
 }) {
   const [productId, setProductId] = useState(draft.productId)
   const [cantidadStr, setCantidadStr] = useState(String(draft.cantidad))
   const [precio, setPrecio] = useState(draft.precioUnitario != null ? String(draft.precioUnitario) : '')
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const product = products.find((p) => p.id === productId)
   const category = product ? categories.find((c) => c.id === product.category_id) : undefined
@@ -51,6 +56,11 @@ export function ConfirmPurchaseItemModal({
 
   async function save() {
     if (!productId || !precio || cantidadNum <= 0) return
+    if (!draft.existingItemId && existingProductIds.has(productId)) {
+      setError('Ese producto ya está en esta compra. Edítalo desde su tarjeta en vez de agregarlo de nuevo.')
+      return
+    }
+    setError(null)
     setSaving(true)
     try {
       const precioUnitarioUsd = toUsd(precioNum, purchase.moneda, purchase.tasa_cambio)
@@ -92,20 +102,19 @@ export function ConfirmPurchaseItemModal({
         <label className="block text-sm font-semibold text-text-label mb-1" htmlFor="modal-producto">
           Producto
         </label>
-        <select
-          id="modal-producto"
-          className="w-full min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-4 text-text disabled:opacity-70 mb-1"
-          value={productId}
-          disabled={draft.lockProduct}
-          onChange={(e) => setProductId(e.target.value)}
-        >
-          <option value="">Selecciona un producto</option>
-          {products.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.nombre}
-            </option>
-          ))}
-        </select>
+        <div className="mb-1">
+          <SearchableSelect
+            id="modal-producto"
+            value={productId}
+            onChange={(id) => {
+              setProductId(id)
+              setError(null)
+            }}
+            options={products.map((p) => ({ id: p.id, label: p.nombre }))}
+            disabled={draft.lockProduct}
+            placeholder="Busca un producto…"
+          />
+        </div>
         {category && (
           <span className={`inline-block text-xs font-semibold rounded-full px-2 py-0.5 mb-4 ${categoryColorClass(category.nombre, category.id)}`}>
             {category.nombre}
@@ -170,6 +179,12 @@ export function ConfirmPurchaseItemModal({
             {purchase.moneda !== 'USD' && <p className="text-dark-bar-usd text-sm">{formatUsd(subtotalUsd)}</p>}
           </div>
         </div>
+
+        {error && (
+          <p className="text-sm text-alert text-center mb-2" role="alert">
+            {error}
+          </p>
+        )}
 
         <div className="flex gap-2">
           <Button variant="ghost" className="flex-1" onClick={onClose}>

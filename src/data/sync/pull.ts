@@ -22,6 +22,12 @@ const SYNCED_TABLES: SyncTableName[] = [
  *   el outbox ya la va a empujar y esa escritura gana en el servidor.
  * - fila local no-dirty que ya no aparece en remoto -> se borró en otro lado,
  *   se borra local también.
+ * - fila con un delete pendiente en el outbox -> nunca se resucita, así el
+ *   push todavía no se haya podido confirmar (visto en la práctica: un
+ *   delete que tarda o falla en subir hacía que el siguiente pull trajera
+ *   de vuelta la fila, porque acá no existe localmente y remoto todavía la
+ *   tiene — un borrado local, a diferencia de un create/update, no deja
+ *   ninguna fila "dirty" que lo proteja por sí sola).
  * A esta escala (pocas familias, catálogos y compras chicos) traer la tabla
  * completa en cada pull es más simple y barato que llevar un cursor
  * incremental + tombstones para los borrados.
@@ -35,8 +41,13 @@ async function reconcileTable(table: SyncTableName) {
   const localTable = db[table] as unknown as Table<SyncedRow, string>
   const localRows = await localTable.toArray()
 
-  await db.transaction('rw', localTable, async () => {
+  await db.transaction('rw', localTable, db.outbox, async () => {
+    const pendingDeleteIds = new Set(
+      (await db.outbox.where({ table }).toArray()).filter((e) => e.op === 'delete').map((e) => e.rowId),
+    )
+
     for (const remote of remoteRows) {
+      if (pendingDeleteIds.has(remote.id)) continue
       const local = localRows.find((r) => r.id === remote.id)
       if (!local || local.dirty === 0) {
         await localTable.put({ ...remote, dirty: 0 })

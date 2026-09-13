@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { purchasesRepo, storesRepo } from '../../data/local/repos'
 import type { CurrencyCode } from '../../data/local/types'
+import { isDuplicateName } from '../../shared/lib/duplicateCheck'
 import { parseDecimalInput } from '../../shared/lib/parseDecimal'
 import { sortByName } from '../../shared/lib/sortByName'
 import { useActiveShoppingList } from '../shopping-list/useActiveShoppingList'
@@ -36,13 +37,19 @@ function StartPurchaseContent({ familyId, userId }: { familyId: string; userId: 
   const [tasaCambio, setTasaCambio] = useState('')
   const [presupuesto, setPresupuesto] = useState('')
   const [error, setError] = useState<string | null>(null)
+  const [storeError, setStoreError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
   async function addStore() {
     if (!newStoreName?.trim()) return
+    if (isDuplicateName(stores, newStoreName)) {
+      setStoreError('Ya existe un supermercado con ese nombre.')
+      return
+    }
     const row = await storesRepo.create({ family_id: familyId, nombre: newStoreName.trim(), created_at: new Date().toISOString() })
     setStoreId(row.id)
     setNewStoreName(null)
+    setStoreError(null)
   }
 
   async function onSubmit() {
@@ -94,14 +101,19 @@ function StartPurchaseContent({ familyId, userId }: { familyId: string; userId: 
                   autoFocus
                   className="flex-1 min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-4 text-text"
                   value={newStoreName}
-                  onChange={(e) => setNewStoreName(e.target.value)}
+                  onChange={(e) => {
+                    setNewStoreName(e.target.value)
+                    setStoreError(null)
+                  }}
                   placeholder="Nombre del supermercado"
                 />
                 <Button className="px-4" onClick={addStore}>
                   Agregar
                 </Button>
               </div>
-            ) : (
+            ) : null}
+            {storeError && <p className="text-xs text-alert mt-1">{storeError}</p>}
+            {newStoreName === null && (
               <select
                 id="supermercado"
                 className="w-full min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-4 text-text"

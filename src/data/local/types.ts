@@ -1,4 +1,5 @@
-export type UnitType = 'kg' | 'g' | 'l' | 'ml' | 'unidad' | 'paquete' | 'cubeta'
+export const UNIT_TYPES = ['kg', 'g', 'l', 'ml', 'unidad', 'paquete', 'cubeta'] as const
+export type UnitType = (typeof UNIT_TYPES)[number]
 export type CurrencyCode = 'VES' | 'USD' | 'COP'
 export type ShoppingListStatus = 'activa' | 'convertida'
 export type PurchaseStatus = 'en_curso' | 'cerrada'

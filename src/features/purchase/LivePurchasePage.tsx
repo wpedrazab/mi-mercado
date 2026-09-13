@@ -289,7 +289,14 @@ function LivePurchaseContent({ familyId, purchaseId }: { familyId: string; purch
       </div>
 
       {draft && (
-        <ConfirmPurchaseItemModal purchase={purchase} products={products} categories={categories} draft={draft} onClose={() => setDraft(null)} />
+        <ConfirmPurchaseItemModal
+          purchase={purchase}
+          products={products}
+          categories={categories}
+          draft={draft}
+          existingProductIds={purchasedProductIds}
+          onClose={() => setDraft(null)}
+        />
       )}
 
       {showPending && (

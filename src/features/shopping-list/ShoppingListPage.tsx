@@ -3,8 +3,9 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../app/providers/AuthProvider'
 import { categoriesRepo, listItemsRepo, productsRepo } from '../../data/local/repos'
-import type { UnitType } from '../../data/local/types'
+import { UNIT_TYPES, type UnitType } from '../../data/local/types'
 import { categoryColorClass } from '../../shared/lib/categoryColor'
+import { isDuplicateName } from '../../shared/lib/duplicateCheck'
 import { parseDecimalInput } from '../../shared/lib/parseDecimal'
 import { sortByName } from '../../shared/lib/sortByName'
 import { Button } from '../../shared/ui/Button'
@@ -12,8 +13,6 @@ import { Card } from '../../shared/ui/Card'
 import { Input } from '../../shared/ui/Input'
 import { ArrowLeftIcon, PlusIcon, TrashIcon } from '../../shared/ui/icons'
 import { useActiveShoppingList } from './useActiveShoppingList'
-
-const UNIT_OPTIONS: UnitType[] = ['kg', 'g', 'l', 'ml', 'unidad', 'paquete', 'cubeta']
 
 export function ShoppingListPage() {
   const auth = useAuth()
@@ -39,11 +38,18 @@ function ShoppingListContent({ familyId, userId }: { familyId: string; userId: s
   const [unidad, setUnidad] = useState<UnitType>('unidad')
   const [newCategoryName, setNewCategoryName] = useState<string | null>(null)
   const [newProductName, setNewProductName] = useState<string | null>(null)
+  const [categoryError, setCategoryError] = useState<string | null>(null)
+  const [productError, setProductError] = useState<string | null>(null)
+  const [itemError, setItemError] = useState<string | null>(null)
 
   const productsInCategory = products.filter((p) => p.category_id === categoryId)
 
   async function addCategory() {
     if (!newCategoryName?.trim()) return
+    if (isDuplicateName(categories, newCategoryName)) {
+      setCategoryError('Ya existe una categoría con ese nombre.')
+      return
+    }
     const row = await categoriesRepo.create({
       family_id: familyId,
       nombre: newCategoryName.trim(),
@@ -52,10 +58,15 @@ function ShoppingListContent({ familyId, userId }: { familyId: string; userId: s
     setCategoryId(row.id)
     setProductId('')
     setNewCategoryName(null)
+    setCategoryError(null)
   }
 
   async function addProduct() {
     if (!newProductName?.trim() || !categoryId) return
+    if (isDuplicateName(products, newProductName)) {
+      setProductError('Ya existe un producto con ese nombre.')
+      return
+    }
     const row = await productsRepo.create({
       family_id: familyId,
       category_id: categoryId,
@@ -65,11 +76,17 @@ function ShoppingListContent({ familyId, userId }: { familyId: string; userId: s
     })
     setProductId(row.id)
     setNewProductName(null)
+    setProductError(null)
   }
 
   async function addItem() {
     const cantidadNum = parseDecimalInput(cantidad)
     if (!list || !productId || !cantidad || cantidadNum <= 0) return
+    setItemError(null)
+    if (items.some((i) => i.product_id === productId)) {
+      setItemError('Ese producto ya está en tu lista.')
+      return
+    }
     await listItemsRepo.create({
       list_id: list.id,
       product_id: productId,
@@ -110,14 +127,19 @@ function ShoppingListContent({ familyId, userId }: { familyId: string; userId: s
                   autoFocus
                   className="flex-1 min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-4 text-text"
                   value={newCategoryName}
-                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  onChange={(e) => {
+                    setNewCategoryName(e.target.value)
+                    setCategoryError(null)
+                  }}
                   placeholder="Nombre de la categoría"
                 />
                 <Button className="px-4" onClick={addCategory}>
                   Agregar
                 </Button>
               </div>
-            ) : (
+            ) : null}
+            {categoryError && <p className="text-xs text-alert mt-1">{categoryError}</p>}
+            {newCategoryName === null && (
               <select
                 id="categoria"
                 className="w-full min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-4 text-text"
@@ -157,21 +179,29 @@ function ShoppingListContent({ familyId, userId }: { familyId: string; userId: s
                   autoFocus
                   className="flex-1 min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-4 text-text"
                   value={newProductName}
-                  onChange={(e) => setNewProductName(e.target.value)}
+                  onChange={(e) => {
+                    setNewProductName(e.target.value)
+                    setProductError(null)
+                  }}
                   placeholder="Nombre del producto"
                 />
                 <Button className="px-4" onClick={addProduct}>
                   Agregar
                 </Button>
               </div>
-            ) : (
+            ) : null}
+            {productError && <p className="text-xs text-alert mt-1">{productError}</p>}
+            {newProductName === null && (
               <>
                 <select
                   id="producto"
                   className="w-full min-h-11 rounded-[var(--radius-field)] border border-border bg-surface px-4 text-text disabled:opacity-50"
                   value={productId}
                   disabled={!categoryId}
-                  onChange={(e) => setProductId(e.target.value)}
+                  onChange={(e) => {
+                    setProductId(e.target.value)
+                    setItemError(null)
+                  }}
                 >
                   <option value="">Selecciona un producto</option>
                   {productsInCategory.map((p) => (
@@ -204,7 +234,7 @@ function ShoppingListContent({ familyId, userId }: { familyId: string; userId: s
               value={unidad}
               onChange={(e) => setUnidad(e.target.value as UnitType)}
             >
-              {UNIT_OPTIONS.map((u) => (
+              {UNIT_TYPES.map((u) => (
                 <option key={u} value={u}>
                   {u}
                 </option>
@@ -220,6 +250,7 @@ function ShoppingListContent({ familyId, userId }: { familyId: string; userId: s
               <PlusIcon className="w-5 h-5" />
             </button>
           </div>
+          {itemError && <p className="text-xs text-alert">{itemError}</p>}
         </Card>
 
         <div className="space-y-3 mb-6">

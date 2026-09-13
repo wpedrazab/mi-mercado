@@ -108,4 +108,25 @@ describe('pullAll — reconciliación con Dexie', () => {
 
     expect(await db.categories.get('cat-pendiente-de-subir')).toBeDefined()
   })
+
+  it('no resucita una fila borrada localmente si el delete sigue pendiente en el outbox', async () => {
+    // La fila ya no existe local (se borró optimistamente), pero el servidor
+    // todavía la tiene porque el push del delete no se pudo confirmar aún.
+    await db.outbox.add({
+      table: 'categories',
+      op: 'delete',
+      rowId: 'cat-remote',
+      payload: null,
+      createdAt: now(),
+      attempts: 1,
+      lastError: 'network error',
+    })
+    mockRemoteCategories([remoteCategory()])
+
+    await pullAll()
+
+    expect(await db.categories.get('cat-remote')).toBeUndefined()
+
+    await db.outbox.clear()
+  })
 })
